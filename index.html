@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verifica Timbratura v1.2</title>
-    <!-- Favicon in Base64 -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzAwNUE5QyIgcng9IjIwIi8+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI4Ii8+PHBhdGggZD0iTTUwIDMwIFY1MCBMNjUgNjUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48L3N2Zz4=">
+    <title>Verifica Timbratura v1.3</title>
+    <!-- Favicon in Base64 (Design Professionale Fucsia) -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICAgIDwhLS0gU2ZvbmRvIGZ1Y3NpYSBhY2Nlc28gY29uIGFuZ29saSBzbXVzc2F0aSBpbiBzdGlsZSBhcHAgLS0+CiAgICA8cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIyIiBmaWxsPSIjRkYwMDgwIi8+CiAgICAKICAgIDwhLS0gT3JvbG9naW8gbWluaW1hbGlzdGEgZSBwdWxpdG8gLS0+CiAgICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSIyNiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjciLz4KICAgIAogICAgPCEtLSBMYW5jZXR0ZSAoY29uIHVuIHJpY2hpYW1vIGEgdW4gc2Vnbm8gZGkgc3B1bnRhIC8gY2hlY2spIC0tPgogICAgPHBhdGggZD0iTTUwIDMyIHYxOCBsMTIgMTIiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSI3IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPC9zdmc+">
     <style>
         :root {
             --primary: #005A9C;
@@ -162,12 +162,11 @@
             padding-bottom: 0;
         }
 
-        /* Nuove classi per mantenere tutto ordinato e in linea */
         .target-row {
             display: flex;
             align-items: center;
             gap: 10px;
-            flex-wrap: wrap; /* Permette di andare a capo solo se lo schermo è minuscolo, ma mantiene i blocchi interi */
+            flex-wrap: wrap;
         }
 
         .target-title {
@@ -178,7 +177,7 @@
 
         .time-info {
             font-size: 1.1rem;
-            white-space: nowrap; /* Impedisce che "Uscita alle" si separi dall'orario */
+            white-space: nowrap;
         }
 
         .highlight {
@@ -199,7 +198,6 @@
             font-weight: bold; 
         }
         
-        /* Stili per il countdown live come "pillola" (badge ovale) per non spezzarlo */
         .countdown-text {
             font-size: 0.95rem;
             font-weight: bold;
@@ -208,8 +206,8 @@
             padding: 4px 12px;
             border-radius: 20px;
             border: 1px solid #ffeeba;
-            white-space: nowrap; /* CRUCIALE: non va mai a capo a metà */
-            display: none; /* Nascosto finché non viene valorizzato */
+            white-space: nowrap;
+            display: none;
             align-items: center;
         }
         .countdown-text.reached {
@@ -223,7 +221,7 @@
 <body>
 
     <div class="container">
-        <h1>Verifica Timbratura <span class="version-badge">v1.2</span></h1>
+        <h1>Verifica Timbratura <span class="version-badge">v1.3</span></h1>
 
         <div id="statusIndicator" class="status">Inserisci la prima timbratura</div>
 
