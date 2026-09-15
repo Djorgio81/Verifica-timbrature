@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verifica Timbratura v1.0</title>
+    <title>Verifica Timbratura v1.1</title>
     <!-- Favicon in Base64 -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzAwNUE5QyIgcng9IjIwIi8+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI4Ii8+PHBhdGggZD0iTTUwIDMwIFY1MCBMNjUgNjUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48L3N2Zz4=">
     <style>
@@ -167,15 +167,33 @@
         }
         
         .success { color: #198754; font-weight: bold; }
+        
         .penalty-badge { color: #6c757d; font-size: 0.85rem; display: block; margin-top: 4px; font-weight: normal; }
         .penalty-badge.red { color: #d9534f; font-weight: bold; }
+        
+        /* Stili per il countdown live */
+        .countdown-text {
+            font-size: 1rem;
+            font-weight: bold;
+            color: #e67e22;
+            margin-left: 10px;
+            background: #fff3cd;
+            padding: 2px 6px;
+            border-radius: 5px;
+            border: 1px solid #ffeeba;
+        }
+        .countdown-text.reached {
+            color: #155724;
+            background: #d4edda;
+            border-color: #c3e6cb;
+        }
 
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>Verifica Timbratura <span class="version-badge">v1.0</span></h1>
+        <h1>Verifica Timbratura <span class="version-badge">v1.1</span></h1>
 
         <div id="statusIndicator" class="status">Inserisci la prima timbratura</div>
 
@@ -196,6 +214,9 @@
 
     <script>
         let timestamps = [];
+        // Variabili globali per memorizzare l'orario di uscita calcolato e lo stato
+        let currentExitTimes = { 'res-buono': null, 'res-completo': null };
+        let isCurrentlyWorking = false;
 
         const targets = {
             'res-buono': { label: '🎫 Buono Pasto (6h 30m)', baseMinutes: 6 * 60 + 30, applyPenalty: false },
@@ -252,6 +273,7 @@
                 statusIndicator.className = 'status';
                 statusIndicator.innerText = 'Inserisci la prima timbratura';
                 resultsContainer.style.display = 'none';
+                isCurrentlyWorking = false;
                 return;
             }
 
@@ -290,7 +312,7 @@
             }
 
             let missing_break = Math.max(0, 30 - b_minutes);
-            const isCurrentlyWorking = timestamps.length % 2 !== 0;
+            isCurrentlyWorking = timestamps.length % 2 !== 0;
 
             if (isCurrentlyWorking) {
                 statusIndicator.className = 'status in';
@@ -315,8 +337,10 @@
                     
                     if (remainingNet <= 0) {
                         el.innerHTML = `${target.label}: <span class="success">Completato!</span>`;
+                        currentExitTimes[id] = null; // Azzera il timer perché è completato
                     } else {
                         let exitTime = lastEntryTime + remainingNet;
+                        currentExitTimes[id] = exitTime; // Memorizza per il countdown live
                         
                         let badge = '';
                         if (!target.applyPenalty) {
@@ -329,9 +353,12 @@
                             }
                         }
 
-                        el.innerHTML = `${target.label}: Uscita alle <span class="highlight">${formatTime(exitTime)}</span>${badge}`;
+                        // Aggiunge lo span per il countdown
+                        el.innerHTML = `${target.label}: Uscita alle <span class="highlight">${formatTime(exitTime)}</span> <span id="cd-${id}" class="countdown-text"></span>${badge}`;
                     }
                 } else {
+                    currentExitTimes[id] = null; // Azzera il timer perché è in pausa
+                    
                     let remainingNet = requiredNet - workedMinutes;
                     if (remainingNet <= 0) {
                         el.innerHTML = `${target.label}: <span class="success">Completato!</span>`;
@@ -344,7 +371,38 @@
                     }
                 }
             }
+            
+            // Forza un aggiornamento immediato dei timer
+            updateTimers();
         }
+
+        // Funzione per aggiornare i countdown in tempo reale
+        function updateTimers() {
+            if (!isCurrentlyWorking) return;
+
+            let now = new Date();
+            let nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+            for (const id of ['res-buono', 'res-completo']) {
+                const cdSpan = document.getElementById(`cd-${id}`);
+                
+                if (cdSpan && currentExitTimes[id] !== null) {
+                    let diff = currentExitTimes[id] - nowMinutes;
+                    
+                    if (diff > 0) {
+                        cdSpan.innerHTML = `⏳ mancano ${formatDuration(diff)}`;
+                        cdSpan.className = 'countdown-text';
+                    } else {
+                        cdSpan.innerHTML = `🎉 raggiunto!`;
+                        cdSpan.className = 'countdown-text reached';
+                    }
+                }
+            }
+        }
+
+        // Avvia il loop per controllare i minuti mancanti ogni secondo
+        setInterval(updateTimers, 1000);
+        
     </script>
 </body>
 </html>
