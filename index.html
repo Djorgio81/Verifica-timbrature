@@ -278,17 +278,17 @@
                 }
             }
 
-            // Penalità calcolata (se la pausa fruita è minore di 30 min)
+            // Quanti minuti mancano per raggiungere i 30 minuti minimi di pausa nella fascia
             let missing_break = Math.max(0, 30 - b_minutes);
 
             const isCurrentlyWorking = timestamps.length % 2 !== 0;
 
             if (isCurrentlyWorking) {
                 statusIndicator.className = 'status in';
-                statusIndicator.innerHTML = `Stato: 🟢 <strong>IN SEDE</strong><br><small>Tempo accumulato (esclusa timbratura in corso): ${formatDuration(workedMinutes)}</small>`;
+                statusIndicator.innerHTML = `Stato: 🟢 <strong>IN SEDE</strong><br><small>Tempo netto accumulato: ${formatDuration(workedMinutes)}</small>`;
             } else {
                 statusIndicator.className = 'status out';
-                statusIndicator.innerHTML = `Stato: 🟡 <strong>IN PAUSA / USCITO</strong><br><small>Tempo accumulato finora: ${formatDuration(workedMinutes)}</small>`;
+                statusIndicator.innerHTML = `Stato: 🟡 <strong>IN PAUSA / USCITO</strong><br><small>Tempo netto accumulato: ${formatDuration(workedMinutes)}</small>`;
             }
 
             const lastEntryTime = isCurrentlyWorking ? timestamps[timestamps.length - 1] : null;
@@ -297,36 +297,31 @@
                 const el = document.getElementById(id);
                 
                 if (isCurrentlyWorking) {
-                    // Minuti netti che mancano per completare il target
                     let baseRemaining = target.minutes - workedMinutes;
-                    
-                    // Se avesse lavorato in continuo, uscirebbe a questa ora:
                     let baseExitTime = lastEntryTime + baseRemaining;
-                    
                     let exitTime = baseExitTime;
                     let penaltyApplied = false;
 
-                    // Se l'orario base di uscita tocca o supera le 13:00, scatta la decurtazione (se dovuta)
-                    if (baseExitTime > (13 * 60) || lastEntryTime >= (13 * 60)) {
-                        exitTime = baseExitTime + missing_break;
-                        if (missing_break > 0) penaltyApplied = true;
+                    // La penalità della pausa NON si applica mai alle 6h30 (id === 'res-6h30')
+                    if (id !== 'res-6h30') {
+                        if (baseExitTime > (13 * 60) || lastEntryTime >= (13 * 60)) {
+                            exitTime = baseExitTime + missing_break;
+                            if (missing_break > 0) penaltyApplied = true;
+                        }
                     }
 
                     if (exitTime <= lastEntryTime) {
                         el.innerHTML = `${target.label}: <span class="success">Completato!</span>`;
                     } else {
                         let breakBadge = penaltyApplied ? 
-                            `<span class="penalty-badge">(Inclusa decurtazione pausa: -${missing_break}m)</span>` : '';
+                            `<span class="penalty-badge">(Aggiunta pausa obbligatoria: +${missing_break}m)</span>` : '';
                         el.innerHTML = `${target.label}: Uscita alle <span class="highlight">${formatTime(exitTime)}</span>${breakBadge}`;
                     }
                 } else {
-                    // Calcolo per quando si è fuori sede
                     let remainingNet = target.minutes - workedMinutes;
                     if (remainingNet <= 0) {
                         el.innerHTML = `${target.label}: <span class="success">Completato!</span>`;
                     } else {
-                        // Se rientra, la decurtazione dipenderà da quando rientra.
-                        // Per non creare confusione mostriamo solo le ore nette mancanti
                         el.innerHTML = `${target.label}: Mancano <span class="highlight">${formatDuration(remainingNet)}</span> netti.`;
                     }
                 }
