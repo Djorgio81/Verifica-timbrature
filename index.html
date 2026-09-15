@@ -135,10 +135,10 @@
         }
 
         .result-item {
-            margin-bottom: 12px;
+            margin-bottom: 15px;
             font-size: 1.1rem;
             border-bottom: 1px dashed #b6d4fe;
-            padding-bottom: 8px;
+            padding-bottom: 10px;
         }
 
         .result-item:last-child {
@@ -154,7 +154,8 @@
         }
         
         .success { color: #198754; font-weight: bold; }
-        .penalty-badge { color: #d9534f; font-size: 0.85rem; display: block; margin-top: 2px;}
+        .penalty-badge { color: #6c757d; font-size: 0.85rem; display: block; margin-top: 4px; font-weight: normal; }
+        .penalty-badge.red { color: #d9534f; font-weight: bold; }
 
     </style>
 </head>
@@ -173,9 +174,8 @@
         <ul id="timestampList" class="timestamp-list"></ul>
 
         <div id="resultsContainer" class="results" style="display: none;">
-            <div class="result-item" id="res-6h30"></div>
-            <div class="result-item" id="res-7h12"></div>
-            <div class="result-item" id="res-7h42"></div>
+            <div class="result-item" id="res-buono"></div>
+            <div class="result-item" id="res-completo"></div>
         </div>
 
         <button class="btn-reset" onclick="resetAll()">Cancella Tutto</button>
@@ -184,10 +184,10 @@
     <script>
         let timestamps = [];
 
+        // Abbiamo semplificato la visualizzazione a 2 obiettivi chiari
         const targets = {
-            'res-6h30': { label: 'Obiettivo 6h 30m (Buono Pasto)', minutes: 6 * 60 + 30 },
-            'res-7h12': { label: 'Obiettivo 7h 12m', minutes: 7 * 60 + 12 },
-            'res-7h42': { label: 'Obiettivo 7h 42m', minutes: 7 * 60 + 42 }
+            'res-buono': { label: '🎫 Buono Pasto (6h 30m)', baseMinutes: 6 * 60 + 30, applyPenalty: false },
+            'res-completo': { label: '🏢 Orario Completo', baseMinutes: 7 * 60 + 12, applyPenalty: true }
         };
 
         function addTime(e) {
@@ -255,9 +255,9 @@
                 list.appendChild(li);
             });
 
-            // Calcolo tempo lavorato netto accumulato e pause godute tra 13:00 (780) e 15:00 (900)
+            // Calcolo tempo lavorato netto accumulato e pause godute ESATTAMENTE tra le 13:00 e le 15:00
             let workedMinutes = 0;
-            let b_minutes = 0; // Pausa fruita nella fascia 13-15
+            let b_minutes = 0; 
 
             for (let i = 0; i < timestamps.length; i += 2) {
                 let entry = timestamps[i];
@@ -266,7 +266,6 @@
                 if (exit !== undefined) {
                     workedMinutes += (exit - entry);
                     
-                    // Controlliamo il lasso di tempo fino all'entrata successiva
                     let nextEntry = timestamps[i+2];
                     if (nextEntry !== undefined) {
                         let overlapStart = Math.max(exit, 13 * 60);
@@ -278,17 +277,17 @@
                 }
             }
 
-            // Quanti minuti mancano per raggiungere i 30 minuti minimi di pausa nella fascia
+            // Quanti minuti mancano per raggiungere i 30 minuti minimi di pausa nella fascia 13-15
             let missing_break = Math.max(0, 30 - b_minutes);
 
             const isCurrentlyWorking = timestamps.length % 2 !== 0;
 
             if (isCurrentlyWorking) {
                 statusIndicator.className = 'status in';
-                statusIndicator.innerHTML = `Stato: 🟢 <strong>IN SEDE</strong><br><small>Tempo netto accumulato: ${formatDuration(workedMinutes)}</small>`;
+                statusIndicator.innerHTML = `Stato: 🟢 <strong>IN SEDE</strong><br><small>Tempo netto accumulato (escluse ore in corso): ${formatDuration(workedMinutes)}</small>`;
             } else {
                 statusIndicator.className = 'status out';
-                statusIndicator.innerHTML = `Stato: 🟡 <strong>IN PAUSA / USCITO</strong><br><small>Tempo netto accumulato: ${formatDuration(workedMinutes)}</small>`;
+                statusIndicator.innerHTML = `Stato: 🟡 <strong>IN PAUSA / USCITO</strong><br><small>Tempo netto accumulato finora: ${formatDuration(workedMinutes)}</small>`;
             }
 
             const lastEntryTime = isCurrentlyWorking ? timestamps[timestamps.length - 1] : null;
@@ -296,33 +295,43 @@
             for (const [id, target] of Object.entries(targets)) {
                 const el = document.getElementById(id);
                 
+                // Determina il target netto effettivo da raggiungere
+                let requiredNet = target.baseMinutes;
+                if (target.applyPenalty) {
+                    requiredNet += missing_break; // Si sommano fino a 30 minuti di penalità solo all'orario completo
+                }
+
                 if (isCurrentlyWorking) {
-                    let baseRemaining = target.minutes - workedMinutes;
-                    let baseExitTime = lastEntryTime + baseRemaining;
-                    let exitTime = baseExitTime;
-                    let penaltyApplied = false;
-
-                    // La penalità della pausa NON si applica mai alle 6h30 (id === 'res-6h30')
-                    if (id !== 'res-6h30') {
-                        if (baseExitTime > (13 * 60) || lastEntryTime >= (13 * 60)) {
-                            exitTime = baseExitTime + missing_break;
-                            if (missing_break > 0) penaltyApplied = true;
-                        }
-                    }
-
-                    if (exitTime <= lastEntryTime) {
-                        el.innerHTML = `${target.label}: <span class="success">Completato!</span>`;
-                    } else {
-                        let breakBadge = penaltyApplied ? 
-                            `<span class="penalty-badge">(Aggiunta pausa obbligatoria: +${missing_break}m)</span>` : '';
-                        el.innerHTML = `${target.label}: Uscita alle <span class="highlight">${formatTime(exitTime)}</span>${breakBadge}`;
-                    }
-                } else {
-                    let remainingNet = target.minutes - workedMinutes;
+                    let remainingNet = requiredNet - workedMinutes;
+                    
                     if (remainingNet <= 0) {
                         el.innerHTML = `${target.label}: <span class="success">Completato!</span>`;
                     } else {
-                        el.innerHTML = `${target.label}: Mancano <span class="highlight">${formatDuration(remainingNet)}</span> netti.`;
+                        let exitTime = lastEntryTime + remainingNet;
+                        
+                        let badge = '';
+                        if (!target.applyPenalty) {
+                            badge = `<span class="penalty-badge">(Sempre 6h 30m nette, nessuna penalità)</span>`;
+                        } else {
+                            if (missing_break > 0) {
+                                badge = `<span class="penalty-badge red">(Richiede ${formatDuration(requiredNet)} netti: include +${missing_break}m per pausa 13-15 non goduta pienamente)</span>`;
+                            } else {
+                                badge = `<span class="penalty-badge">(Richiede ${formatDuration(requiredNet)} netti: pausa goduta regolarmente)</span>`;
+                            }
+                        }
+
+                        el.innerHTML = `${target.label}: Uscita alle <span class="highlight">${formatTime(exitTime)}</span>${badge}`;
+                    }
+                } else {
+                    let remainingNet = requiredNet - workedMinutes;
+                    if (remainingNet <= 0) {
+                        el.innerHTML = `${target.label}: <span class="success">Completato!</span>`;
+                    } else {
+                        let badge = '';
+                        if (target.applyPenalty && missing_break > 0) {
+                            badge = `<span class="penalty-badge red">(Attualmente calcolati +${missing_break}m di recupero pausa)</span>`;
+                        }
+                        el.innerHTML = `${target.label}: Mancano <span class="highlight">${formatDuration(remainingNet)}</span> netti.${badge}`;
                     }
                 }
             }
