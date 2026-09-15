@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verifica Timbratura</title>
+    <!-- Favicon in Base64 (SVG quadrato semplice con un orologio stilizzato) -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzAwNUE5QyIgcng9IjIwIi8+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI4Ii8+PHBhdGggZD0iTTUwIDMwIFY1MCBMNjUgNjUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48L3N2Zz4=">
     <style>
         :root {
             --primary: #005A9C;
@@ -152,6 +154,7 @@
         }
         
         .success { color: #198754; font-weight: bold; }
+        .penalty-badge { color: #d9534f; font-size: 0.85rem; display: block; margin-top: 2px;}
 
     </style>
 </head>
@@ -181,9 +184,8 @@
     <script>
         let timestamps = [];
 
-        // Obiettivi in minuti
         const targets = {
-            'res-6h30': { label: 'Obiettivo 6h 30m', minutes: 6 * 60 + 30 },
+            'res-6h30': { label: 'Obiettivo 6h 30m (Buono Pasto)', minutes: 6 * 60 + 30 },
             'res-7h12': { label: 'Obiettivo 7h 12m', minutes: 7 * 60 + 12 },
             'res-7h42': { label: 'Obiettivo 7h 42m', minutes: 7 * 60 + 42 }
         };
@@ -194,10 +196,8 @@
             const [hours, minutes] = timeInput.value.split(':').map(Number);
             const totalMinutes = hours * 60 + minutes;
 
-            // Evita doppioni esatti
             if (!timestamps.includes(totalMinutes)) {
                 timestamps.push(totalMinutes);
-                // Ordina cronologicamente
                 timestamps.sort((a, b) => a - b);
             }
             
@@ -234,7 +234,6 @@
             const statusIndicator = document.getElementById('statusIndicator');
             const resultsContainer = document.getElementById('resultsContainer');
 
-            // Pulisce la lista
             list.innerHTML = '';
 
             if (timestamps.length === 0) {
@@ -246,7 +245,6 @@
 
             resultsContainer.style.display = 'block';
 
-            // Rigenera la lista HTML
             timestamps.forEach((t, index) => {
                 const li = document.createElement('li');
                 const action = index % 2 === 0 ? '📥 Entrata' : '📤 Uscita';
@@ -257,36 +255,80 @@
                 list.appendChild(li);
             });
 
-            // Calcola il tempo accumulato
+            // Calcolo tempo lavorato netto accumulato e pause godute tra 13:00 (780) e 15:00 (900)
             let workedMinutes = 0;
-            for (let i = 0; i < timestamps.length - 1; i += 2) {
-                workedMinutes += (timestamps[i+1] - timestamps[i]);
+            let b_minutes = 0; // Pausa fruita nella fascia 13-15
+
+            for (let i = 0; i < timestamps.length; i += 2) {
+                let entry = timestamps[i];
+                let exit = timestamps[i+1];
+                
+                if (exit !== undefined) {
+                    workedMinutes += (exit - entry);
+                    
+                    // Controlliamo il lasso di tempo fino all'entrata successiva
+                    let nextEntry = timestamps[i+2];
+                    if (nextEntry !== undefined) {
+                        let overlapStart = Math.max(exit, 13 * 60);
+                        let overlapEnd = Math.min(nextEntry, 15 * 60);
+                        if (overlapStart < overlapEnd) {
+                            b_minutes += (overlapEnd - overlapStart);
+                        }
+                    }
+                }
             }
+
+            // Penalità calcolata (se la pausa fruita è minore di 30 min)
+            let missing_break = Math.max(0, 30 - b_minutes);
 
             const isCurrentlyWorking = timestamps.length % 2 !== 0;
 
             if (isCurrentlyWorking) {
                 statusIndicator.className = 'status in';
-                statusIndicator.innerHTML = 'Stato: 🟢 <strong>IN SEDE</strong>';
+                statusIndicator.innerHTML = `Stato: 🟢 <strong>IN SEDE</strong><br><small>Tempo accumulato (esclusa timbratura in corso): ${formatDuration(workedMinutes)}</small>`;
             } else {
                 statusIndicator.className = 'status out';
-                statusIndicator.innerHTML = 'Stato: 🟡 <strong>IN PAUSA / USCITO</strong><br><small>Tempo accumulato finora: ' + formatDuration(workedMinutes) + '</small>';
+                statusIndicator.innerHTML = `Stato: 🟡 <strong>IN PAUSA / USCITO</strong><br><small>Tempo accumulato finora: ${formatDuration(workedMinutes)}</small>`;
             }
 
-            // Calcola le proiezioni per l'uscita
             const lastEntryTime = isCurrentlyWorking ? timestamps[timestamps.length - 1] : null;
 
             for (const [id, target] of Object.entries(targets)) {
                 const el = document.getElementById(id);
-                const remainingMinutes = target.minutes - workedMinutes;
+                
+                if (isCurrentlyWorking) {
+                    // Minuti netti che mancano per completare il target
+                    let baseRemaining = target.minutes - workedMinutes;
+                    
+                    // Se avesse lavorato in continuo, uscirebbe a questa ora:
+                    let baseExitTime = lastEntryTime + baseRemaining;
+                    
+                    let exitTime = baseExitTime;
+                    let penaltyApplied = false;
 
-                if (remainingMinutes <= 0) {
-                    el.innerHTML = `${target.label}: <span class="success">Completato!</span>`;
-                } else if (isCurrentlyWorking) {
-                    const exitTime = lastEntryTime + remainingMinutes;
-                    el.innerHTML = `${target.label}: Uscita alle <span class="highlight">${formatTime(exitTime)}</span>`;
+                    // Se l'orario base di uscita tocca o supera le 13:00, scatta la decurtazione (se dovuta)
+                    if (baseExitTime > (13 * 60) || lastEntryTime >= (13 * 60)) {
+                        exitTime = baseExitTime + missing_break;
+                        if (missing_break > 0) penaltyApplied = true;
+                    }
+
+                    if (exitTime <= lastEntryTime) {
+                        el.innerHTML = `${target.label}: <span class="success">Completato!</span>`;
+                    } else {
+                        let breakBadge = penaltyApplied ? 
+                            `<span class="penalty-badge">(Inclusa decurtazione pausa: -${missing_break}m)</span>` : '';
+                        el.innerHTML = `${target.label}: Uscita alle <span class="highlight">${formatTime(exitTime)}</span>${breakBadge}`;
+                    }
                 } else {
-                    el.innerHTML = `${target.label}: Mancano <span class="highlight">${formatDuration(remainingMinutes)}</span> di lavoro`;
+                    // Calcolo per quando si è fuori sede
+                    let remainingNet = target.minutes - workedMinutes;
+                    if (remainingNet <= 0) {
+                        el.innerHTML = `${target.label}: <span class="success">Completato!</span>`;
+                    } else {
+                        // Se rientra, la decurtazione dipenderà da quando rientra.
+                        // Per non creare confusione mostriamo solo le ore nette mancanti
+                        el.innerHTML = `${target.label}: Mancano <span class="highlight">${formatDuration(remainingNet)}</span> netti.`;
+                    }
                 }
             }
         }
